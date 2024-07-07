@@ -1,0 +1,23 @@
+django-admin startproject resource_mapping
+
+django-admin startapp resources
+
+python manage.py inspectdb wards hospitals schools > models.py
+
+python manage.py inspectdb wards rivers forests roads subcounty towns water_bodies > models.py
+
+python manage.py squashmigrations resources
+
+python manage.py migrate resources zero
+
+cd resources/migrations
+
+# Delete all migration files except __init__.py
+rm -f !(__init__).py
+
+geofeaturemodelserializers dont work correctly with multipolygon
+python manage.py migrate resources zero
+
+
+
+

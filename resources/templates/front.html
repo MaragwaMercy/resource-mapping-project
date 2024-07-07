@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    {% load leaflet_tags %}
+    {% leaflet_js %}
+    {% leaflet_css %}
+
+    <link rel="stylesheet" href="{% static 'leaflet-groupedlayercontrol/src/leaflet.groupedlayercontrol.css' %}">
+    <link rel="stylesheet" href="{% static 'marker-cluster/dist/MarkerCluster.css' %}">
+    <link rel="stylesheet" href="{% static 'marker-cluster/dist/MarkerCluster.Default.css' %}">
+    <link rel="stylesheet" href="{% static 'fullscreen/Control.FullScreen.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/0.4.2/leaflet.draw.css"/>
+    <link rel="stylesheet" href="{% static 'leaflet-measure/leaflet.measurecontrol.css' %}">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/0.4.2/leaflet.draw.js"></script>
+    <script src="{% static 'leaflet-buffer/dist/leaflet.buffer.min.js' %}"></script>
+    <script src="{% static 'leaflet-groupedlayercontrol/src/leaflet.groupedlayercontrol.js' %}"></script>
+    <script src="{% static 'ajax/dist/leaflet.ajax.js' %}"></script>
+    <script src="{% static 'marker-cluster/dist/leaflet.markercluster.js' %}"></script>
+    <script src="{% static 'fullscreen/Control.FullScreen.js' %}"></script>
+    <script src="{% static 'leaflet-measure/leaflet.measurecontrol.js' %}"></script>
+   
+    <title>EMBU COUNTY GOVERNMENT</title>
+    <style>
+        #map {
+            width: 1200px;
+            height: 600px;
+        }
+
+        h1 {
+            text-align: center;
+            color: rgba(5, 102, 31, 0.941);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .logo {
+            display: block;
+            margin: 0 auto;
+            width: 800px;
+            height: 200px;
+        }
+
+        #filters {
+            margin: 5px;
+            padding: 10px;
+            background-color: #d8bf05;
+            border: 1px solid #044da7;
+            display: flex;
+            gap: 20px;
+        }
+
+        .filter-group {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+
+<h1>EMBU COUNTY RESOURCE MAP</h1>
+<br>
+<div id="filters">
+    <div class="filter-group">
+        <label for="kephLevelFilter">KEPH Level:</label>
+        <select id="kephLevelFilter">
+            <option value="">All</option>
+            <option value="Level 1">Level 1</option>
+            <option value="Level 2">Level 2</option>
+            <option value="Level 3">Level 3</option>
+            <option value="Level 4">Level 4</option>
+            <option value="Level 5">Level 5</option>
+        </select>
+
+        <label for="facilityTypeFilter">Facility Type:</label>
+        <select id="facilityTypeFilter">
+            <option value="">All</option>
+            <option value="Secondary care hospitals">Secondary care hospitals</option>
+            <option value="Dispensary">Dispensary</option>
+            <option value="Nursing Homes">Nursing Homes</option>
+            <option value="HEALTH CENTRE">HEALTH CENTRE</option>
+            <option value="Nursing and Maternity Home">Nursing and Maternity Home</option>
+            <option value="Basic Health Centre">Basic Health Centre</option>
+            <option value="Medical Clinic">Medical Clinic</option>
+            <option value="VCT">VCT</option>
+            <option value="Comprehensive Health Centre">Comprehensive Health Centre</option>
+            <option value="Primary care hospitals">Primary care hospitals</option>
+            <option value="Medical Center">Medical Center</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="schoolLevelFilter">School Level:</label>
+        <select id="schoolLevelFilter">
+            <option value="">All</option>
+            <option value="Primary">Primary</option>
+            <option value="Secondary">Secondary</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="roadClassFilter">Road Class:</label>
+        <select id="roadClassFilter">
+            <option value="">All</option>
+            <option value="B">B</option>
+            <option value="U">U</option>
+            <option value="R">R</option>
+            <option value="E">E</option>
+            <option value="D">D</option>
+            <option value="A">A</option>
+            <option value="C">C</option>
+            <option value="T">T</option>
+        </select>
+
+    </div>
+    <div class="filter-group">
+        <label for="publicLandStatusFilter">Current Status:</label>
+        <select id="publicLandStatusFilter">
+            <option value="">All</option>
+            <option value="Encroached">Encroached</option>
+            <option value="Other">Other</option>
+            <option value="Vacant">Vacant</option>
+            <option value="Developed">Developed</option>
+        </select>
+
+        <label for="publicLandAreaFilter">Area:</label>
+        <select id="publicLandAreaFilter">
+            <option value="all">All</option>
+            <option value="greater_than_0.5">Greater than 0.5 acres</option>
+            <option value="0.5_to_1.0">0.5 - 1.0 acres</option>
+            <option value="1.0_to_2.0">1.0 - 2.0 acres</option>
+            <option value="2.0_to_5.0">2.0 - 5.0 acres</option>
+            <option value="5.0_to_10.0">5.0 - 10.0 acres</option>
+            <option value="10.0_to_15.0">10.0 - 15.0 acres</option>
+            <option value="15.0_to_20.0">15.0 - 20.0 acres</option>
+            <option value="over_20.0">Over 20.0 acres</option>
+        </select>
+    </div>
+</div>
+<div id="map"></div>
+<script>
+    function output_layers() {
+        var osm = L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 25,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        });
+
+        var OpenTopoMap = L.tileLayer('http://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            maxZoom: 25,
+            attribution: 'Map data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+        });
+
+        var googleMaps = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 25,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: 'Map data &copy; <a href="https://www.google.com/maps">Google Maps</a>'
+        });
+
+        var googleSatellite = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 25,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: 'Map data &copy; <a href="https://www.google.com/maps">Google Maps</a>'
+        });
+
+        var wards = new L.GeoJSON.AJAX("http://127.0.0.1:8000/api/wards/", {
+            onEachFeature: function (feature, layer) {
+                var popupContent = "<strong>ward:</strong> " + feature.properties.name;
+                layer.bindPopup(popupContent);
+            },
+            style: function(feature) {
+                return { color: 'red', fillColor: 'transparent', weight: 2 };
+            }
+        });
+
+        var hospitalIcon = L.icon({
+            iconUrl: '{% static "media/hospitalpinsvg.svg" %}',
+            iconSize: [40, 40],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
+
+        var hospitalsLayer = new L.MarkerClusterGroup();
+        var hospitalsGeoJSON = new L.GeoJSON(null, {
+            pointToLayer: function (feature, latlng) {
+                return L.marker(latlng, {icon: hospitalIcon});
+            },
+            onEachFeature: function (feature, layer) {
+                var popupContent = "<strong>name:</strong> " + feature.properties.name + "<br>" +
+                    "<strong>keph_level:</strong> " + feature.properties.keph_level + "<br>" +
+                    "<strong>facility_type:</strong> " + feature.properties.facility_type;
+                layer.bindPopup(popupContent);
+            }
+        });
+
+        function loadHospitals() {
+            var kephLevel = document.getElementById('kephLevelFilter').value;
+            var facilityType = document.getElementById('facilityTypeFilter').value;
+            var hospitalsUrl = "http://127.0.0.1:8000/api/hospitals/";
+
+            fetch(hospitalsUrl)
+                .then(response => response.json())
+                .then(data => {
+                    hospitalsGeoJSON.clearLayers();
+                    hospitalsLayer.clearLayers();
+                    L.geoJSON(data, {
+                        filter: function (feature) {
+                            var kephMatch = !kephLevel || feature.properties.keph_level === kephLevel;
+                            var typeMatch = !facilityType || feature.properties.facility_type === facilityType;
+                            return kephMatch && typeMatch;
+                        },
+                        pointToLayer: hospitalsGeoJSON.options.pointToLayer,
+                        onEachFeature: hospitalsGeoJSON.options.onEachFeature
+                    }).addTo(hospitalsGeoJSON);
+                    hospitalsLayer.addLayer(hospitalsGeoJSON); // Ensure GeoJSON is added to the cluster group
+                });
+        }
+
+        var PrimaryIcon = L.icon({
+            iconUrl: '{% static "media/primary.svg" %}',
+            iconSize: [32, 32],
+            iconAnchor: [8, 16],
+            popupAnchor: [0, -32]
+        });
+
+        var SecondaryIcon = L.icon({
+            iconUrl: '{% static "media/schools.svg" %}',
+            iconSize: [32, 32],
+            iconAnchor: [8, 16],
+            popupAnchor: [0, -32]
+        });
+
+        var schoolsLayer = new L.MarkerClusterGroup();
+        var schoolsGeoJSON = new L.GeoJSON(null, {
+            pointToLayer: function (feature, latlng) {
+                var icon = feature.properties.level === 'Primary' ? PrimaryIcon : SecondaryIcon;
+                return L.marker(latlng, {icon: icon});
+            },
+            onEachFeature: function (feature, layer) {
+                var popupContent = "<strong>school_name:</strong> " + feature.properties.school_name + "<br>" +
+                    "<strong>level:</strong> " + feature.properties.level + "<br>" +
+                    "<strong>status:</strong> " + feature.properties.status;
+                layer.bindPopup(popupContent);
+            }
+        });
+
+        function loadSchools() {
+            var schoolLevel = document.getElementById('schoolLevelFilter').value;
+            var schoolsUrl = "http://127.0.0.1:8000/api/schools/";
+
+            fetch(schoolsUrl)
+                .then(response => response.json())
+                .then(data => {
+                    schoolsGeoJSON.clearLayers();
+                    schoolsLayer.clearLayers();
+                    L.geoJSON(data, {
+                        filter: function (feature) {
+                            var levelMatch = !schoolLevel || feature.properties.level === schoolLevel;
+                            return levelMatch;
+                        },
+                        pointToLayer: schoolsGeoJSON.options.pointToLayer,
+                        onEachFeature: schoolsGeoJSON.options.onEachFeature
+                    }).addTo(schoolsGeoJSON);
+                    schoolsLayer.addLayer(schoolsGeoJSON); // Ensure GeoJSON is added to the cluster group
+                });
+        }
+
+        var publiclandLayer = new L.MarkerClusterGroup();
+        var publiclandGeoJSON = new L.GeoJSON(null, {
+            onEachFeature: function (feature, layer) {
+                var popupContent = "<strong>L.R No:</strong> " + feature.properties.l_r_no + "<br>" +
+                "<strong>Area (acres):</strong> " + feature.properties.acreage_acres + "<br>" +
+                "<strong>Institution:</strong> " + feature.properties.institution + "<br>" +
+                    "<strong>Status:</strong> " + feature.properties.status;
+                layer.bindPopup(popupContent);
+            }
+        });
+
+        function loadPublicLand() {
+            var publicLandUrl = "http://127.0.0.1:8000/api/publicland/";
+            var statusFilter = document.getElementById('publicLandStatusFilter').value;
+            var areaFilter = document.getElementById('publicLandAreaFilter').value;
+
+            fetch(publicLandUrl)
+                .then(response => response.json())
+                .then(data => {
+                    publiclandGeoJSON.clearLayers();
+                    publiclandLayer.clearLayers();
+                    L.geoJSON(data, {
+                        filter: function (feature) {
+                            var statusMatch = !statusFilter || feature.properties.current_status === statusFilter;
+
+                            var area = parseFloat(feature.properties.acreage_acres);
+                            var areaMatch = false;
+                            switch (areaFilter) {
+                                case "all":
+                                    areaMatch = true;
+                                    break;
+                                case "greater_than_0.5":
+                                    areaMatch = area > 0.5;
+                                    break;
+                                case "0.5_to_1.0":
+                                    areaMatch = area >= 0.5 && area <= 1.0;
+                                    break;
+                                case "1.0_to_2.0":
+                                    areaMatch = area >= 1.0 && area <= 2.0;
+                                    break;
+                                case "2.0_to_5.0":
+                                    areaMatch = area >= 2.0 && area <= 5.0;
+                                    break;
+                                case "5.0_to_10.0":
+                                    areaMatch = area >= 5.0 && area <= 10.0;
+                                    break;
+                                case "10.0_to_15.0":
+                                    areaMatch = area >= 10.0 && area <= 15.0;
+                                    break;
+                                case "15.0_to_20.0":
+                                    areaMatch = area >= 15.0 && area <= 20.0;
+                                    break;
+                                case "over_20.0":
+                                    areaMatch = area > 20.0;
+                                    break;
+                            }
+
+                            return statusMatch && areaMatch;
+                        },
+                        onEachFeature: publiclandGeoJSON.options.onEachFeature
+                    }).addTo(publiclandGeoJSON);
+                    publiclandLayer.addLayer(publiclandGeoJSON); // Ensure GeoJSON is added to the cluster group
+                });
+        }
+
+        var forests = new L.GeoJSON.AJAX("http://127.0.0.1:8000/api/forests/", {
+            onEachFeature: function (feature, layer) {
+                var popupContent = "<strong>Name:</strong> " + feature.properties.name;
+                layer.bindPopup(popupContent);
+            },
+            style: function(feature) {
+                return { color: 'black', fillColor: 'green', weight: 2 };
+            }
+        });
+
+        var roadsLayer = new L.GeoJSON(null, {
+            onEachFeature: function (feature, layer) {
+                var popupContent = "<strong>road_name:</strong> " + feature.properties.road_name + "<br>" +
+                    "<strong>roadclass:</strong> " + feature.properties.roadclass;
+                layer.bindPopup(popupContent);
+            },
+            style: function(feature) {
+                switch (feature.properties.roadclass) {
+                    case 'A':
+                        return { color: 'yellow', weight: 3 };
+                    case 'B':
+                        return { color: 'orange', weight: 3 };
+                    case 'C':
+                        return { color: 'red', weight: 3 };
+                    case 'D':
+                        return { color: 'green', weight: 3 };
+                    case 'E':
+                        return { color: 'blue', weight: 3 };
+                    case 'U':
+                        return { color: 'purple', weight: 3 };
+                    case 'R':
+                        return { color: 'pink', weight: 3 };
+                    case 'T':
+                        return { color: 'brown', weight: 3 };
+                    default:
+                        return { color: 'grey', weight: 2 };
+                }
+            }
+        });
+
+        function loadRoads() {
+            var roadClass = document.getElementById('roadClassFilter').value;
+            var roadsUrl = "http://127.0.0.1:8000/api/roads/";
+
+            fetch(roadsUrl)
+                .then(response => response.json())
+                .then(data => {
+                    roadsLayer.clearLayers();
+                    L.geoJSON(data, {
+                        filter: function (feature) {
+                            var classMatch = !roadClass || feature.properties.roadclass === roadClass;
+                            return classMatch;
+                        },
+                        onEachFeature: roadsLayer.options.onEachFeature,
+                        style: roadsLayer.options.style
+                    }).addTo(roadsLayer);
+                });
+        }
+
+        var subcounty = new L.GeoJSON.AJAX("http://127.0.0.1:8000/api/subcounty/", {
+            onEachFeature: function (feature, layer) {
+                var popupContent = "<strong>Name:</strong> " + feature.properties.subcounty;
+                layer.bindPopup(popupContent);
+            },
+            style: function(feature) {
+                return { color: 'black', fillColor: 'transparent', weight: 3 };
+            }
+        });
+
+        var towns = new L.GeoJSON.AJAX("http://127.0.0.1:8000/api/towns/", {
+            onEachFeature: function (feature, layer) {
+                var popupContent = "<strong>Name:</strong> " + feature.properties.name + "<br>" +
+                    "<strong>Type:</strong> " + feature.properties.type;
+                layer.bindPopup(popupContent);
+            },
+            style: function(feature) {
+                return { color: 'blue', fillColor: 'transparent', weight: 2 };
+            }
+        });
+
+        var waterbodies = new L.GeoJSON.AJAX("http://127.0.0.1:8000/api/waterbodies/", {
+            onEachFeature: function (feature, layer) {
+                var popupContent = "<strong>Name:</strong> " + feature.properties.name + "<br>" +
+                    "<strong>Type:</strong> " + feature.properties.type;
+                layer.bindPopup(popupContent);
+            },
+            style: function(feature) {
+                return { color: 'black', fillColor: 'blue', weight: 2 };
+            }
+        });
+
+        var rivers = new L.GeoJSON.AJAX("http://127.0.0.1:8000/api/rivers/", {
+            onEachFeature: function (feature, layer) {
+                var popupContent = "<strong>Name:</strong> " + feature.properties.name + "<br>" +
+                    "<strong>Type:</strong> " + feature.properties.type;
+                layer.bindPopup(popupContent);
+            },
+            style: function(feature) {
+                return { color: 'blue', fillColor: 'transparent', weight: 2 };
+            }
+        });
+
+        var map = L.map('map', {
+            center: [-0.5317, 37.4500],
+            zoom: 10,
+            layers: [osm]
+        });
+        var fullscreenControl = new L.Control.FullScreen();
+        map.addControl(fullscreenControl);
+
+
+        var drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        var drawControl = new L.Control.Draw({
+            edit: {
+                featureGroup: drawnItems,
+                buffer: {
+                    replacePolylines: false,
+                    separateBuffer: false
+                }
+            }
+        });
+        map.addControl(drawControl);
+
+        map.on(L.Draw.Event.CREATED, function (event) {
+            var layer = event.layer;
+            drawnItems.addLayer(layer);
+        });
+        
+        L.Control.measureControl().addTo(map);
+
+        subcounty.addTo(map);
+        hospitalsLayer.addTo(map);
+        loadHospitals(); 
+        
+        loadSchools();
+       
+        loadPublicLand();
+
+        googleMaps.addTo(map);
+        loadRoads();
+
+        var baseLayers = {
+            "OSM": osm,
+            "OpenTopoMap": OpenTopoMap,
+            "Google Maps": googleMaps,
+            "Google Satellite": googleSatellite
+        };
+
+        var groupedOverlays = {
+            "Administrative Boundaries": {
+                "Towns": towns,
+                "Sub counties": subcounty,
+                "Wards": wards
+            },
+            "Social Amenities": {
+                "Hospitals": hospitalsLayer,
+                "Schools": schoolsLayer
+            },
+            "Infrastructure": {
+                "Roads": roadsLayer
+            },
+            "Natural Resources": {
+                "Forests": forests,
+                "Water Bodies": waterbodies,
+                "Rivers": rivers
+            },
+            "County Assets": {
+                "Public Land": publiclandLayer,
+            }
+        };
+
+        L.control.groupedLayers(baseLayers, groupedOverlays).addTo(map);
+
+        document.getElementById('kephLevelFilter').addEventListener('change', loadHospitals);
+        document.getElementById('facilityTypeFilter').addEventListener('change', loadHospitals);
+        document.getElementById('schoolLevelFilter').addEventListener('change', loadSchools);
+        document.getElementById('roadClassFilter').addEventListener('change', loadRoads);
+        document.getElementById('publicLandStatusFilter').addEventListener('change', loadPublicLand);
+        document.getElementById('publicLandAreaFilter').addEventListener('change', loadPublicLand);
+    }
+
+    document.addEventListener("DOMContentLoaded", function(event) {
+        output_layers();
+    });
+</script>
+</body>
+</html>
